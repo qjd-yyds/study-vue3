@@ -1,0 +1,1 @@
+{"version":3,"file":"shared.cjs.js","sources":["../src/index.ts"],"sourcesContent":["export const isObject = (val: unknown): val is Record<any, any> => val !== null && typeof val === 'object';\n"],"names":[],"mappings":";;;;MAAa,QAAQ,GAAG,CAAC,GAAY,KAA8B,GAAG,KAAK,IAAI,IAAI,OAAO,GAAG,KAAK;;;;"}

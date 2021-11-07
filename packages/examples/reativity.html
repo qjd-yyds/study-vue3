@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=
+  , initial-scale=1.0"
+    />
+    <script src="../reativity/dist/reativity.global.js"></script>
+    <title>reativity测试</title>
+  </head>
+
+  <body>
+    <script>
+      const { reative, shallowReactive } = VueReactivity;
+      const state = reative({
+        name: '全部代理',
+        list: {
+          inner: '我在里面被代理了'
+        }
+      });
+      console.log('reative=>', state);
+      console.log('reative外层=>', state.name);
+      console.log('reative内层=>', state.list);
+      // 只代理一层
+      const shallowState = shallowReactive({
+        name: '代理一层',
+        list: {
+          inner: '我在里面不会被代理'
+        }
+      });
+      console.log('外层=>', shallowState.name);
+      console.log('外层=>', shallowState);
+      console.log('内层=>', shallowState.list);
+    </script>
+  </body>
+</html>
