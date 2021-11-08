@@ -1,5 +1,5 @@
 import { isObject } from '@vue/shared';
-import { reativeHandlers,shallowReactiveHandlers,readonlyHandlers,shallowReativeHandlers } from './baseHandlers';
+import { reativeHandlers, shallowReactiveHandlers, readonlyHandlers, shallowReativeHandlers } from './baseHandlers';
 export function reative(target) {
   return createReativeObj(target, false, reativeHandlers);
 }
@@ -20,8 +20,10 @@ const readOnlyMap = new WeakMap(); // key必须为一个对象 自动垃圾回�
 // 创建reative对象，返回一个proxy
 function createReativeObj(target, isReadonly, baseHandlers) {
   if (!isObject(target)) {
+    console.error("必须为一个对象")
     return target;
   }
+  console.log('reative传入的值=>', target);
   // 通过是否只读来创建不同map
   const proxyMap = isReadonly ? readOnlyMap : reativeMap;
   const proxyEs = proxyMap.get(target);

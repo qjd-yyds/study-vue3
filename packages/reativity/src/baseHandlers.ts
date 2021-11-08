@@ -1,13 +1,15 @@
-import { isObject } from '@vue/shared';
+import { hasOwn, isArray, isIntegerKey, isObject } from '@vue/shared';
+import { Track } from './effect';
+import { TrackOpTypes } from './operations';
 import { readonly, reative } from './reative';
 // 处理get
 function createGetter(isReadonly = false, shallow = false) {
   return function get(target, key, receiver) {
-    console.log('触发get');
     const res = Reflect.get(target, key, receiver); // target[key]
     // 不是只读
     if (!isReadonly) {
-      // 收集依赖
+      // 收集依赖effect,目标对象的key采用的操作get
+      Track(target, TrackOpTypes.GET, key);
     }
     // 浅
     if (shallow) {
@@ -32,6 +34,18 @@ const shallowReadonlyGet = /*#__PURE__*/ createGetter(true, true); // 只读 浅
 function createSetter(shallow = false) {
   return function set(target, key, value, receiver) {
     const result = Reflect.set(target, key, value, receiver);
+    // 设置的是数组还是对象，添加值还是修改
+    // 获取老值
+    const oldValue = target[key];
+    // 判断是否是数组，proxy的key就是数组的索引，如果key大于length表示新增false,小于表示修改true
+    // 如果是对象，如果存在属性就是修改true，不存在就是新增属性flase
+    let haskey = isArray(target) && isIntegerKey(key) ? Number(key) < target.length : hasOwn(target, key);
+    if(!haskey) {// 没有
+      // 新增
+    }else {
+      // 修改
+      // trigger(target)
+    }
     return result;
   };
 }
