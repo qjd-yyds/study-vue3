@@ -15,8 +15,11 @@ const hasOwnProperty = Object.prototype.hasOwnProperty;
 const hasOwn = (val, key) => hasOwnProperty.call(val, key);
 // 判断数组的key是不是整数
 const isIntegerKey = (key) => isString(key) && key !== 'NaN' && key[0] !== '-' && '' + parseInt(key, 10) === key;
+// 判断两个值是否相同
+const hasChanged = (value, oldValue) => !Object.is(value, oldValue);
 
 exports.extend = extend;
+exports.hasChanged = hasChanged;
 exports.hasOwn = hasOwn;
 exports.isArray = isArray;
 exports.isFunction = isFunction;

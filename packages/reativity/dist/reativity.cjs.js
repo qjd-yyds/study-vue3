@@ -11,6 +11,8 @@ const hasOwnProperty = Object.prototype.hasOwnProperty;
 const hasOwn = (val, key) => hasOwnProperty.call(val, key);
 // 判断数组的key是不是整数
 const isIntegerKey = (key) => isString(key) && key !== 'NaN' && key[0] !== '-' && '' + parseInt(key, 10) === key;
+// 判断两个值是否相同
+const hasChanged = (value, oldValue) => !Object.is(value, oldValue);
 
 function effect(fn, options = {}) {
     const effect = createReactiveEffect(fn, options);
@@ -69,7 +71,7 @@ function createReactiveEffect(fn, options) {
 let targetMap = new WeakMap(); // 创建表
 function Track(target, type, key) {
     console.log('触发get，且当前不是只读，进行收集依赖');
-    console.log(target, type, key, activeEffect, activeEffect.id);
+    console.log(target, type, key, activeEffect, activeEffect);
     // 1.name ==> effect
     // key和effect一一对应
     if (typeof activeEffect === 'undefined') {
@@ -93,6 +95,55 @@ function Track(target, type, key) {
         dep.add(activeEffect);
     }
     console.log('依赖收集完成，当前创建的依赖weakmap==>', targetMap);
+}
+// 触发依赖
+// 1.处理对象
+function trigger(target, type, key, newValue, oldValue) {
+    console.log(target, type, key, newValue, oldValue, '==>触发更新');
+    const depsMap = targetMap.get(target);
+    // 判断目标对象有没有被收集==> 不是响应的
+    if (!depsMap)
+        return;
+    const effectSet = new Set();
+    // 性能优化如果有多个同时修改一个值，相同就过滤
+    const add = (effectAdd) => {
+        if (effectAdd) {
+            effectAdd.forEach((effect) => {
+                effectSet.add(effect);
+            });
+        }
+    };
+    // 修改数组长度，数组特殊处理
+    if (key === 'length' && isArray(target)) {
+        // proxy在添加数组的时候默认会讲length等属性加入
+        // 在effect中length也被添加依赖
+        // 当用户修改长度，或者修改的下标小于所有数组的下标
+        // 将length和下标的effect放入dep中
+        depsMap.forEach((dep, key) => {
+            // 如歌
+            if (key === 'length' || key >= newValue) {
+                console.log('dep==>', dep);
+                add(dep);
+            }
+        });
+    }
+    else {
+        // 可能是对象
+        if (key !== undefined) {
+            // 获取当前key下的effect
+            add(depsMap.get(key));
+        }
+        switch (type) {
+            // 如果是新增属性
+            case "add" /* ADD */:
+                if (isArray(target) && isIntegerKey(key)) {
+                    // 如果是个数组且key为整数，就将length的effect加入依赖
+                    add(depsMap.get('length'));
+                }
+        }
+    }
+    effectSet.forEach((effect) => effect());
+    // 执行
 }
 
 // 处理get
@@ -124,13 +175,27 @@ const shallowReadonlyGet = /*#__PURE__*/ createGetter(true, true); // 只读 浅
 // 处理set,是否浅
 function createSetter(shallow = false) {
     return function set(target, key, value, receiver) {
-        const result = Reflect.set(target, key, value, receiver);
+        // 存储旧值
+        const oldValue = target[key];
         // 设置的是数组还是对象，添加值还是修改
-        // 获取老值
-        target[key];
         // 判断是否是数组，proxy的key就是数组的索引，如果key大于length表示新增false,小于表示修改true
         // 如果是对象，如果存在属性就是修改true，不存在就是新增属性flase
-        isArray(target) && isIntegerKey(key) ? Number(key) < target.length : hasOwn(target, key);
+        let hadKey = isArray(target) && isIntegerKey(key) ? Number(key) < target.length : hasOwn(target, key);
+        const result = Reflect.set(target, key, value, receiver);
+        if (!hadKey) {
+            // 没有
+            console.log('触发set新增');
+            // 新增 key操作的属性 value 新值
+            trigger(target, "add" /* ADD */, key, value);
+        }
+        else {
+            // 修改值
+            // 如果新值和旧值不相同
+            if (hasChanged(value, oldValue)) {
+                console.log('触发set修改');
+                trigger(target, "set" /* SET */, key, value, oldValue);
+            }
+        }
         return result;
     };
 }
@@ -197,9 +262,44 @@ function createReativeObj(target, isReadonly, baseHandlers) {
     return proxy;
 }
 
+function ref(target) {
+    return createRef(target);
+}
+// 创建类RefImpl
+class RefImpl {
+    rawValue;
+    shallow;
+    __v_isRef = true; // 标识ref代理
+    _value;
+    constructor(rawValue, shallow) {
+        this.rawValue = rawValue;
+        this.shallow = shallow;
+        this._value = rawValue; // 原来的值
+    }
+    // 类的属性访问器,收集依赖track
+    get value() {
+        Track(this, "get" /* GET */, 'value');
+        return this._value;
+    }
+    set value(newValue) {
+        // 修改，触发依赖
+        if (hasChanged(newValue, this._value)) {
+            this._value = newValue;
+            this.rawValue = newValue;
+            console.log("触发set--value");
+            trigger(this, "set" /* SET */, 'value', newValue);
+        }
+    }
+}
+function createRef(rawValue, shallow = false) {
+    // 创建ref，返回实例对象
+    return new RefImpl(rawValue, shallow);
+}
+
 exports.effect = effect;
 exports.readonly = readonly;
 exports.reative = reative;
+exports.ref = ref;
 exports.shallowReactive = shallowReactive;
 exports.shallowReative = shallowReative;
 //# sourceMappingURL=reativity.cjs.js.map

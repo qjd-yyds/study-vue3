@@ -1,3 +1,6 @@
+import { isArray, isIntegerKey } from '@vue/shared';
+import { TriggerOpTypes } from './operations';
+
 export function effect(fn, options: any = {}) {
   const effect = createReactiveEffect(fn, options);
   // 判断options
@@ -55,7 +58,7 @@ function createReactiveEffect(fn, options) {
 let targetMap = new WeakMap(); // 创建表
 export function Track(target, type, key) {
   console.log('触发get，且当前不是只读，进行收集依赖');
-  console.log(target, type, key, activeEffect, activeEffect.id);
+  console.log(target, type, key, activeEffect, activeEffect);
   // 1.name ==> effect
   // key和effect一一对应
   if (typeof activeEffect === 'undefined') {
@@ -79,4 +82,52 @@ export function Track(target, type, key) {
     dep.add(activeEffect);
   }
   console.log('依赖收集完成，当前创建的依赖weakmap==>', targetMap);
+}
+
+// 触发依赖
+// 1.处理对象
+export function trigger(target, type, key?, newValue?, oldValue?) {
+  console.log(target, type, key, newValue, oldValue, '==>触发更新');
+  const depsMap = targetMap.get(target);
+  // 判断目标对象有没有被收集==> 不是响应的
+  if (!depsMap) return;
+  const effectSet = new Set();
+  // 性能优化如果有多个同时修改一个值，相同就过滤
+  const add = (effectAdd) => {
+    if (effectAdd) {
+      effectAdd.forEach((effect) => {
+        effectSet.add(effect);
+      });
+    }
+  };
+  // 修改数组长度，数组特殊处理
+  if (key === 'length' && isArray(target)) {
+    // proxy在添加数组的时候默认会讲length等属性加入
+    // 在effect中length也被添加依赖
+    // 当用户修改长度，或者修改的下标小于所有数组的下标
+    // 将length和下标的effect放入dep中
+    depsMap.forEach((dep, key) => {
+      // 如歌
+      if (key === 'length' || key >= newValue) {
+        console.log('dep==>', dep);
+        add(dep);
+      }
+    });
+  } else {
+    // 可能是对象
+    if (key !== undefined) {
+      // 获取当前key下的effect
+      add(depsMap.get(key));
+    }
+    switch (type) {
+      // 如果是新增属性
+      case TriggerOpTypes.ADD:
+        if (isArray(target) && isIntegerKey(key)) {
+          // 如果是个数组且key为整数，就将length的effect加入依赖
+          add(depsMap.get('length'));
+        }
+    }
+  }
+  effectSet.forEach((effect: any) => effect());
+  // 执行
 }

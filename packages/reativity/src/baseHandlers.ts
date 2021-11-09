@@ -1,6 +1,6 @@
-import { hasOwn, isArray, isIntegerKey, isObject } from '@vue/shared';
-import { Track } from './effect';
-import { TrackOpTypes } from './operations';
+import { hasChanged, hasOwn, isArray, isIntegerKey, isObject } from '@vue/shared';
+import { Track, trigger } from './effect';
+import { TrackOpTypes, TriggerOpTypes } from './operations';
 import { readonly, reative } from './reative';
 // 处理get
 function createGetter(isReadonly = false, shallow = false) {
@@ -33,18 +33,26 @@ const shallowReadonlyGet = /*#__PURE__*/ createGetter(true, true); // 只读 浅
 // 处理set,是否浅
 function createSetter(shallow = false) {
   return function set(target, key, value, receiver) {
-    const result = Reflect.set(target, key, value, receiver);
-    // 设置的是数组还是对象，添加值还是修改
-    // 获取老值
+    // 存储旧值
     const oldValue = target[key];
+    // 设置的是数组还是对象，添加值还是修改
     // 判断是否是数组，proxy的key就是数组的索引，如果key大于length表示新增false,小于表示修改true
     // 如果是对象，如果存在属性就是修改true，不存在就是新增属性flase
-    let haskey = isArray(target) && isIntegerKey(key) ? Number(key) < target.length : hasOwn(target, key);
-    if(!haskey) {// 没有
-      // 新增
-    }else {
-      // 修改
-      // trigger(target)
+    let hadKey = isArray(target) && isIntegerKey(key) ? Number(key) < target.length : hasOwn(target, key);
+
+    const result = Reflect.set(target, key, value, receiver);
+    if (!hadKey) {
+      // 没有
+      console.log('触发set新增');
+      // 新增 key操作的属性 value 新值
+      trigger(target, TriggerOpTypes.ADD, key, value);
+    } else {
+      // 修改值
+      // 如果新值和旧值不相同
+      if (hasChanged(value, oldValue)) {
+        console.log('触发set修改');
+        trigger(target, TriggerOpTypes.SET, key, value, oldValue);
+      }
     }
     return result;
   };

@@ -9,28 +9,19 @@
   , initial-scale=1.0"
     />
     <script src="../reativity/dist/reativity.global.js"></script>
-    <title>effect测试</title>
+    <title>ref测试</title>
   </head>
 
   <body>
     <div id="app"></div>
     <script>
-      const { reative, effect } = VueReactivity;
-      const state = reative({
-        name: '全部代理',
-        list: {
-          inner: '我在里面被代理了'
-        },
-        arr: [1, 2, 3]
-      });
+      const { ref, effect } = VueReactivity;
+      const state = ref('zhangsan');
       effect(() => {
-        app.innerHTML = state.name + '===' + state.arr[2];
-        // 1.执行get
-        // state.name;
+        app.innerHTML = state.value;
       });
       setTimeout(() => {
-        state.name = '123';
-        state.arr.length = 1;
+        state.value = 123213;
       }, 1000);
     </script>
   </body>

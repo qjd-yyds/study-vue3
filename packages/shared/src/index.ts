@@ -16,3 +16,6 @@ export const hasOwn = (val: object, key: string | symbol): key is keyof typeof v
 
 // 判断数组的key是不是整数
 export const isIntegerKey = (key) => isString(key) && key !== 'NaN' && key[0] !== '-' && '' + parseInt(key, 10) === key;
+
+// 判断两个值是否相同
+export const hasChanged = (value: any, oldValue: any): boolean => !Object.is(value, oldValue);
