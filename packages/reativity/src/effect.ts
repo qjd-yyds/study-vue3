@@ -5,7 +5,7 @@ export function effect(fn, options: any = {}) {
   const effect = createReactiveEffect(fn, options);
   // 判断options
   if (!options.lazy) {
-    console.log('用户没有传递lazy，执行');
+    console.log('用户没有传递lazy，立即执行一次');
     effect(); // 默认执行
   }
   return effect;
@@ -29,17 +29,15 @@ effect(() => {
 function createReactiveEffect(fn, options) {
   const effect = function reativeEffect() {
     if (!effectTrack.includes(effect)) {
-      console.log('当前创建的effect不存在栈中,创建effect');
+      // 当前创建的effect不存在栈中,创建effect
       // 没有入栈当前的effect
       try {
         // 入栈
         effectTrack.push(effect);
         activeEffect = effect;
-        console.log('执行用户方法');
         // 响应式effect
-        fn(); // 执行用户的方法
+        return fn(); // 执行用户的方法
       } finally {
-        console.log('执行finally');
         // 无论是否成功，都执行
         // 出栈
         effectTrack.pop();
@@ -57,8 +55,7 @@ function createReactiveEffect(fn, options) {
 // 收集effect，获取数据的时候触发get 收集effect
 let targetMap = new WeakMap(); // 创建表
 export function Track(target, type, key) {
-  console.log('触发get，且当前不是只读，进行收集依赖');
-  console.log(target, type, key, activeEffect, activeEffect);
+  console.log('触发收集', '被收集的target==>', target, '被收集的key==>', key);
   // 1.name ==> effect
   // key和effect一一对应
   if (typeof activeEffect === 'undefined') {
@@ -87,7 +84,7 @@ export function Track(target, type, key) {
 // 触发依赖
 // 1.处理对象
 export function trigger(target, type, key?, newValue?, oldValue?) {
-  console.log(target, type, key, newValue, oldValue, '==>触发更新');
+  // 触发更新
   const depsMap = targetMap.get(target);
   // 判断目标对象有没有被收集==> 不是响应的
   if (!depsMap) return;
@@ -107,9 +104,7 @@ export function trigger(target, type, key?, newValue?, oldValue?) {
     // 当用户修改长度，或者修改的下标小于所有数组的下标
     // 将length和下标的effect放入dep中
     depsMap.forEach((dep, key) => {
-      // 如歌
       if (key === 'length' || key >= newValue) {
-        console.log('dep==>', dep);
         add(dep);
       }
     });
@@ -128,6 +123,14 @@ export function trigger(target, type, key?, newValue?, oldValue?) {
         }
     }
   }
-  effectSet.forEach((effect: any) => effect());
+  // 触发effect方法
+  effectSet.forEach((effect: any) => {
+    if (effect.options.scheduler) {
+      // 当前scheduler存在，effect为computed,effect的副作用放在get里
+      effect.options.scheduler();
+    } else {
+      effect();
+    }
+  });
   // 执行
 }

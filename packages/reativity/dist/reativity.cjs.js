@@ -5,6 +5,7 @@ Object.defineProperty(exports, '__esModule', { value: true });
 // 判断是否对象
 const isObject = (val) => val !== null && typeof val === 'object';
 const isArray = Array.isArray;
+const isFunction = (val) => typeof val === 'function';
 const isString = (val) => typeof val === 'string';
 // 判断是否存在属性
 const hasOwnProperty = Object.prototype.hasOwnProperty;
@@ -18,7 +19,7 @@ function effect(fn, options = {}) {
     const effect = createReactiveEffect(fn, options);
     // 判断options
     if (!options.lazy) {
-        console.log('用户没有传递lazy，执行');
+        console.log('用户没有传递lazy，立即执行一次');
         effect(); // 默认执行
     }
     return effect;
@@ -42,18 +43,16 @@ effect(() => {
 function createReactiveEffect(fn, options) {
     const effect = function reativeEffect() {
         if (!effectTrack.includes(effect)) {
-            console.log('当前创建的effect不存在栈中,创建effect');
+            // 当前创建的effect不存在栈中,创建effect
             // 没有入栈当前的effect
             try {
                 // 入栈
                 effectTrack.push(effect);
                 activeEffect = effect;
-                console.log('执行用户方法');
                 // 响应式effect
-                fn(); // 执行用户的方法
+                return fn(); // 执行用户的方法
             }
             finally {
-                console.log('执行finally');
                 // 无论是否成功，都执行
                 // 出栈
                 effectTrack.pop();
@@ -70,8 +69,7 @@ function createReactiveEffect(fn, options) {
 // 收集effect，获取数据的时候触发get 收集effect
 let targetMap = new WeakMap(); // 创建表
 function Track(target, type, key) {
-    console.log('触发get，且当前不是只读，进行收集依赖');
-    console.log(target, type, key, activeEffect, activeEffect);
+    console.log('触发收集', '被收集的target==>', target, '被收集的key==>', key);
     // 1.name ==> effect
     // key和effect一一对应
     if (typeof activeEffect === 'undefined') {
@@ -99,7 +97,7 @@ function Track(target, type, key) {
 // 触发依赖
 // 1.处理对象
 function trigger(target, type, key, newValue, oldValue) {
-    console.log(target, type, key, newValue, oldValue, '==>触发更新');
+    // 触发更新
     const depsMap = targetMap.get(target);
     // 判断目标对象有没有被收集==> 不是响应的
     if (!depsMap)
@@ -120,9 +118,7 @@ function trigger(target, type, key, newValue, oldValue) {
         // 当用户修改长度，或者修改的下标小于所有数组的下标
         // 将length和下标的effect放入dep中
         depsMap.forEach((dep, key) => {
-            // 如歌
             if (key === 'length' || key >= newValue) {
-                console.log('dep==>', dep);
                 add(dep);
             }
         });
@@ -142,7 +138,16 @@ function trigger(target, type, key, newValue, oldValue) {
                 }
         }
     }
-    effectSet.forEach((effect) => effect());
+    // 触发effect方法
+    effectSet.forEach((effect) => {
+        if (effect.options.scheduler) {
+            // 当前scheduler存在，effect为computed,effect的副作用放在get里
+            effect.options.scheduler();
+        }
+        else {
+            effect();
+        }
+    });
     // 执行
 }
 
@@ -183,17 +188,17 @@ function createSetter(shallow = false) {
         let hadKey = isArray(target) && isIntegerKey(key) ? Number(key) < target.length : hasOwn(target, key);
         const result = Reflect.set(target, key, value, receiver);
         if (!hadKey) {
-            // 没有
-            console.log('触发set新增');
+            // 没有，触发新增数据
+            console.log('当前值为新增，触发set新增==>', key);
             // 新增 key操作的属性 value 新值
             trigger(target, "add" /* ADD */, key, value);
         }
         else {
-            // 修改值
+            // 有，修改值
             // 如果新值和旧值不相同
             if (hasChanged(value, oldValue)) {
-                console.log('触发set修改');
-                trigger(target, "set" /* SET */, key, value, oldValue);
+                console.log('当前值为修改，触发set修改');
+                trigger(target, "set" /* SET */, key, value);
             }
         }
         return result;
@@ -286,20 +291,128 @@ class RefImpl {
         if (hasChanged(newValue, this._value)) {
             this._value = newValue;
             this.rawValue = newValue;
-            console.log("触发set--value");
+            console.log('触发set--value');
             trigger(this, "set" /* SET */, 'value', newValue);
         }
     }
 }
+/**
+ * @description: 创建ref，返回实例对象
+ * @param {*} rawValue
+ * @param {Boolean} shallow
+ * @return {Object} RefImpl
+ */
 function createRef(rawValue, shallow = false) {
     // 创建ref，返回实例对象
     return new RefImpl(rawValue, shallow);
 }
+/**
+ * @description: 目标对象如果是响应式，返回的属性是响应的，如果是普通的就是普通的
+ * @param {Object} target
+ * @param {String} key
+ * @return {ObjectRefImpl} ObjectRefImpl
+ */
+function toRef(target, key) {
+    return new ObjectRefImpl(target, key);
+}
+/**
+ * @description: toref返回的值，本质是通过模拟value 触发reative的get和set
+ * @param {Object} target
+ * @param {String} key
+ */
+class ObjectRefImpl {
+    target;
+    key;
+    __v_isRef = true; // 标识ref代理
+    constructor(target, key) {
+        this.target = target;
+        this.key = key;
+    }
+    get value() {
+        return this.target[this.key];
+    }
+    set value(newValue) {
+        this.target[this.key] = newValue;
+    }
+}
+/**
+ * @description: reative的所有值变成ObjectRefImpl实例
+ * @param {object} reative
+ * @return {object} Record<string,ObjectRefImpl>
+ */
+function toRefs(target) {
+    // 遍历当前对象
+    // 如果是数组 new Array
+    let ret = isArray(target) ? new Array(target.length) : {};
+    for (let key in target) {
+        // 将对象变成toref
+        ret[key] = toRef(target, key);
+    }
+    return ret;
+}
 
+// 计算属性
+function computed(getterOrOptions) {
+    // 1.函数 2.对象
+    // 获取数据
+    let getter; // 获取
+    let setter; // 设置
+    if (isFunction(getterOrOptions)) {
+        getter = getterOrOptions;
+        setter = () => {
+            console.warn('computed value must be readonly');
+        };
+    }
+    else {
+        // {get(),set()}
+        // 对象
+        getter = getterOrOptions.get;
+        setter = getterOrOptions.set;
+    }
+    return new ComputedRefImpl(getter, setter);
+}
+class ComputedRefImpl {
+    setter;
+    _dirty = true; // 默认获取执行
+    _value;
+    effect;
+    constructor(getter, setter) {
+        this.setter = setter;
+        // 当创建一个computed的时候，就当前的getter作为effect的回调函数
+        // 并且将effect存到自己的effect
+        this.effect = effect(getter, {
+            lazy: true,
+            scheduler: () => {
+                // 当修改数据的时候执行
+                if (!this._dirty) {
+                    this._dirty = true;
+                }
+            }
+        });
+    }
+    // 通过.value
+    get value() {
+        // 当获取xxx.value的时候，执行effect函数，吧effect执行后的数据放在_value,并返回这个数据
+        // 如果当前dirty为false，代表当前依赖响应未发生变化，从缓存拿值
+        if (this._dirty) {
+            console.log('进入缓存判断，当前dirty为true，执行effect');
+            this._dirty = false; // 变更为false
+            this._value = this.effect(); // 获取用户的值，只要数据被改变
+        }
+        return this._value;
+    }
+    set value(newValue) {
+        this.setter(newValue);
+    }
+}
+
+exports.computed = computed;
 exports.effect = effect;
 exports.readonly = readonly;
 exports.reative = reative;
 exports.ref = ref;
 exports.shallowReactive = shallowReactive;
 exports.shallowReative = shallowReative;
+exports.toRef = toRef;
+exports.toRefs = toRefs;
 //# sourceMappingURL=reativity.cjs.js.map

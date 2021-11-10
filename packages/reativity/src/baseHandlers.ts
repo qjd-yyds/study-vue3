@@ -42,15 +42,15 @@ function createSetter(shallow = false) {
 
     const result = Reflect.set(target, key, value, receiver);
     if (!hadKey) {
-      // 没有
-      console.log('触发set新增');
+      // 没有，触发新增数据
+      console.log('当前值为新增，触发set新增==>', key);
       // 新增 key操作的属性 value 新值
       trigger(target, TriggerOpTypes.ADD, key, value);
     } else {
-      // 修改值
+      // 有，修改值
       // 如果新值和旧值不相同
       if (hasChanged(value, oldValue)) {
-        console.log('触发set修改');
+        console.log('当前值为修改，触发set修改');
         trigger(target, TriggerOpTypes.SET, key, value, oldValue);
       }
     }

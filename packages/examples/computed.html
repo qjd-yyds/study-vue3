@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=
+  , initial-scale=1.0"
+    />
+    <script src="../reativity/dist/reativity.global.js"></script>
+    <title>computed测试</title>
+  </head>
+
+  <body>
+    <div id="app"></div>
+    <script>
+      const { ref, computed, effect } = VueReactivity;
+      const age = ref(10);
+      const addAge = computed(() => {
+        // 1.定义了，没有使用，不会触发里面的执行，懒执行
+        // 2.缓存机制_drity
+        return age.value + 1;
+      });
+      setInterval(() => {
+        age.value += 1;
+        console.log(addAge);
+      }, 1000 * 2);
+    </script>
+  </body>
+</html>
