@@ -8,4 +8,4 @@ async function build(target) {
     stdio: 'inherit'
   });
 }
-build("reativity")
+build("runtime-dom")
