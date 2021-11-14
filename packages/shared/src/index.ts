@@ -19,3 +19,5 @@ export const isIntegerKey = (key) => isString(key) && key !== 'NaN' && key[0] !=
 
 // 判断两个值是否相同
 export const hasChanged = (value: any, oldValue: any): boolean => !Object.is(value, oldValue);
+
+export * from './shapeFlags';

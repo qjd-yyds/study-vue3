@@ -13,8 +13,18 @@
   </head>
 
   <body>
+    <div id="app">12321</div>
     <script>
-      console.log(VueRuntimeDom);
+      const { creatApp } = VueRuntimeDom;
+      const App = {
+        render() {
+          console.log(11);
+        }
+      };
+      creatApp(App, {
+        name: '张三',
+        age: 123
+      }).mount('#app');
     </script>
   </body>
 </html>

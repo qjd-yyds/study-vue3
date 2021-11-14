@@ -2,8 +2,12 @@ var VueRuntimeDom = (function (exports) {
   'use strict';
 
   // 判断是否对象
+  const isObject = (val) => val !== null && typeof val === 'object';
   // 合并对象
   const extend = Object.assign;
+  const isArray = Array.isArray;
+  const isFunction = (val) => typeof val === 'function';
+  const isString = (val) => typeof val === 'string';
 
   // 操作节点增删改插
   const doc = (typeof document !== 'undefined' ? document : null);
@@ -74,11 +78,12 @@ var VueRuntimeDom = (function (exports) {
       // 1.函数缓存
       const invokers = el._vei || (el._vei = {});
       const exists = invokers[key];
-      if (exists && nextValue) {
-          exists.value = nextValue;
+      if (nextValue && exists) {
           // 原来有
+          exists.value = nextValue;
       }
       else {
+          // 事件名字
           const eventName = key.slice(2).toLowerCase();
           if (nextValue) {
               // 1.新的有
@@ -156,9 +161,110 @@ var VueRuntimeDom = (function (exports) {
       }
   }
 
+  /**
+   * @description: 作用和h函数一样，创建vnode
+   * @param {*} type 类型
+   * @param {*} props 属性
+   * @param {*} childen 插槽
+   * @return { vnode } vnode
+   */
+  // h('div',{},[])
+  function creatVnode(type, props, children = null, patchFlag = 0, dynamicProps = null, isBlockNode = false) {
+      // 区分组件的虚拟dom还是普通元素
+      const shapeFlag = isString(type)
+          ? 1 /* ELEMENT */
+          : isObject(type)
+              ? 4 /* STATEFUL_COMPONENT */
+              : isFunction(type)
+                  ? 2 /* FUNCTIONAL_COMPONENT */
+                  : 0;
+      const vnode = {
+          _v_isVnode: true,
+          type,
+          props,
+          key: props && props.key,
+          el: null,
+          shapeFlag
+      };
+      // children
+      normalizeChildren(vnode, children);
+      return vnode;
+  }
+  function normalizeChildren(vnode, children) {
+      let type = 0;
+      if (children == null) {
+          return;
+      }
+      else if (isArray(children)) {
+          type = 16 /* ARRAY_CHILDREN */;
+      }
+      else {
+          type = 8 /* TEXT_CHILDREN */;
+      }
+      vnode.shapeFlag = vnode.shapeFlag | type;
+  }
+
+  /**
+   * @description: 创建vnode
+   * @param {*} render
+   * @return {*}
+   */
+  function ApiCreateApp(render) {
+      return function creatApp(rootcomponent, rootProps) {
+          const app = {
+              _component: rootcomponent,
+              _props: rootProps,
+              _container: null,
+              mount(container) {
+                  // 创建vnode
+                  let vnode = creatVnode(rootcomponent, rootProps);
+                  console.log(vnode, 'vnode');
+                  // 渲染
+                  render(vnode, container);
+              }
+          };
+          return app;
+      };
+  }
+
+  /**
+   * @description: 平台判断，创建渲染器
+   * @return {Function} createApp 挂载函数
+   */
+  function createRenderer(rendererOptions) {
+      /**
+       * @description: 实现渲染，组件初始化
+       * @param {*} vnode 虚拟dom
+       * @param {*} container 容器
+       * @return {*} container
+       */
+      function render(vnode, container) {
+          // 组件初始化
+      }
+      return {
+          createApp: ApiCreateApp(render) // 创建vnode
+      };
+  }
+
   // 操作dom的文件
   const rendererOptions = extend({ patchProp }, nodeOps);
+  const creatApp = (rootcomponent, rootProps) => {
+      // 平台判断，创建一个渲染器
+      const app = createRenderer().createApp(rootcomponent, rootProps);
+      const { mount } = app;
+      app.mount = function (container) {
+          // #app
+          // 挂载组件
+          // 1.先清空容器内的内容
+          container = rendererOptions.querySelector(container);
+          container.innerHTML = '';
+          // 将组件的dom元素进行挂载
+          mount(container);
+      };
+      return app;
+  };
 
+  exports.creatApp = creatApp;
   exports.rendererOptions = rendererOptions;
 
   Object.defineProperty(exports, '__esModule', { value: true });
