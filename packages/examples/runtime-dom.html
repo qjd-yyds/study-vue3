@@ -17,8 +17,15 @@
     <script>
       const { creatApp } = VueRuntimeDom;
       const App = {
-        render() {
-          console.log(11);
+        render(proxy) {
+          console.log(proxy.name);
+        },
+        setup(props, ctx) {
+          console.log(props, ctx);
+          // return () => h('div', { style: { color: 'red' }, onClick: fn }, 'hellp' + state.age);
+          // return () => {
+          //   console.log("setup render");
+          // };
         }
       };
       creatApp(App, {

@@ -28,9 +28,11 @@ export function creatVnode(
     _v_isVnode: true,
     type,
     props,
+    children,
     key: props && props.key, // diff算法
     el: null, // 和真实元素和dom对应
-    shapeFlag
+    component: null,
+    shapeFlag // 判断类型
   };
   // children
   normalizeChildren(vnode, children);

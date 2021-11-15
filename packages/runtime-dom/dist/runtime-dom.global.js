@@ -8,6 +8,9 @@ var VueRuntimeDom = (function (exports) {
   const isArray = Array.isArray;
   const isFunction = (val) => typeof val === 'function';
   const isString = (val) => typeof val === 'string';
+  // 判断是否存在属性
+  const hasOwnProperty = Object.prototype.hasOwnProperty;
+  const hasOwn = (val, key) => hasOwnProperty.call(val, key);
 
   // 操作节点增删改插
   const doc = (typeof document !== 'undefined' ? document : null);
@@ -182,9 +185,11 @@ var VueRuntimeDom = (function (exports) {
           _v_isVnode: true,
           type,
           props,
+          children,
           key: props && props.key,
           el: null,
-          shapeFlag
+          component: null,
+          shapeFlag // 判断类型
       };
       // children
       normalizeChildren(vnode, children);
@@ -218,7 +223,6 @@ var VueRuntimeDom = (function (exports) {
               mount(container) {
                   // 创建vnode
                   let vnode = creatVnode(rootcomponent, rootProps);
-                  console.log(vnode, 'vnode');
                   // 渲染
                   render(vnode, container);
               }
@@ -227,11 +231,137 @@ var VueRuntimeDom = (function (exports) {
       };
   }
 
+  const componentPublicInstance = {
+      get({ _: instance }, key) {
+          const { props, setupState, data } = instance;
+          if (key[0] === '$') {
+              // $开头的不能获取
+              return;
+          }
+          if (hasOwn(props, key)) {
+              return props[key];
+          }
+          else if (hasOwn(setupState, key)) {
+              return setupState[key];
+          }
+      },
+      set({ _: instance }, key, value) {
+          const { props, setupState, data } = instance;
+          if (hasOwn(props, key)) {
+              props[key] = value;
+          }
+          else if (hasOwn(setupState, key)) {
+              setupState[key] = value;
+          }
+      }
+  };
+
+  // 创建组件实例
+  const createComponentInstance = (vnode) => {
+      const instance = {
+          vnode,
+          type: vnode.type,
+          props: {},
+          attrs: {},
+          data: { a: 1 },
+          render: false,
+          setupState: {},
+          ctx: {},
+          proxy: {},
+          isMounted: false // 是否挂载
+      };
+      instance.ctx = {
+          _: instance
+      };
+      return instance;
+  };
+  // 解析数据到组件实例
+  const setupComponent = (instance) => {
+      // 设置值
+      const { props, children } = instance.vnode;
+      instance.props = props;
+      instance.children = children;
+      console.log(children, '==>children');
+      let isStateFul = instance.vnode.shapeFlag && 4 /* STATEFUL_COMPONENT */;
+      if (isStateFul) {
+          // 有的话就是有状态的组件
+          setupStateComponent(instance);
+      }
+  };
+  // 执行setup
+  function setupStateComponent(instance) {
+      instance.proxy = new Proxy(instance.ctx, componentPublicInstance);
+      // setup的返回值，变成render函数的参数this
+      // 获取组件的类型
+      let component = instance.type;
+      let { setup } = component;
+      // 判断组件有没有setup
+      if (setup) {
+          const setupContext = createContext(instance);
+          let setupResult = setup(instance.props, setupContext);
+          // 返回值对象，函数
+          handleSetupResult(instance, setupResult); // 如果是对象，将值放入实例上的setupState，如果函数就是render
+      }
+      else {
+          // setup没有，调用render
+          finishComponentSetup(instance);
+      }
+      component.render(instance.proxy);
+  }
+  // 处理setup的返回结果
+  function handleSetupResult(instance, setupResult) {
+      if (isFunction(setupResult)) {
+          instance.render = setupResult; // 将setup返回的函数保存到实例上
+          // 函数
+      }
+      else if (isObject(setupResult)) {
+          instance.setupState = setupResult;
+      }
+      // 最终去执行render
+      finishComponentSetup(instance);
+  }
+  // 处理render
+  function finishComponentSetup(instance) {
+      let component = instance.type;
+      // 判断setup是否有render
+      if (!instance.render) {
+          // 没有render
+          // 进行模版编译
+          if (!component.render && component.template) ;
+          // 将实例上的setup放入render里
+          instance.render = component.render;
+      }
+      console.log(instance.render.toString());
+  }
+  // 创建上下文 ctx
+  function createContext(instance) {
+      return {
+          attrs: instance.attrs,
+          slot: instance.slots,
+          emit: () => { },
+          expose: () => { }
+      };
+  }
+
   /**
    * @description: 平台判断，创建渲染器
    * @return {Function} createApp 挂载函数
    */
   function createRenderer(rendererOptions) {
+      const mountComponent = (initialVNode, container) => {
+          // 组件初始化流程
+          // 1.先有一个组件的对象render（proxy）
+          const instance = (initialVNode.component = createComponentInstance(initialVNode));
+          // 2.解析数据到实例对象
+          setupComponent(instance);
+      };
+      // 组件创建
+      const processComponent = (n1, n2, container) => {
+          if (n1 == null) {
+              // 第一次
+              mountComponent(n2);
+          }
+      };
       /**
        * @description: 实现渲染，组件初始化
        * @param {*} vnode 虚拟dom
@@ -240,6 +370,25 @@ var VueRuntimeDom = (function (exports) {
        */
       function render(vnode, container) {
           // 组件初始化
+          /**
+           * @description: 渲染
+           * @param {*} n1 上一个节点
+           * @param {*} n2 需要渲染的节点
+           * @param {*} container 渲染的目标容器
+           * @return {*}
+           */
+          function patch(n1, n2, container) {
+              const { shapeFlag } = n2;
+              if (shapeFlag & 1 /* ELEMENT */) {
+                  console.log('元素');
+              }
+              else if (shapeFlag & 4 /* STATEFUL_COMPONENT */) {
+                  console.log('当前渲染的是组件');
+                  processComponent(n1, n2);
+              }
+          }
+          // 渲染
+          patch(null, vnode);
       }
       return {
           createApp: ApiCreateApp(render) // 创建vnode

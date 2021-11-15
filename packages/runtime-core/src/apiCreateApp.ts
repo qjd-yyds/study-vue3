@@ -14,7 +14,6 @@ export function ApiCreateApp(render) {
       mount(container) {
         // 创建vnode
         let vnode = creatVnode(rootcomponent, rootProps);
-        console.log(vnode, 'vnode');
         // 渲染
         render(vnode, container);
       }
