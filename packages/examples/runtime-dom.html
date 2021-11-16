@@ -15,17 +15,25 @@
   <body>
     <div id="app">12321</div>
     <script>
-      const { creatApp } = VueRuntimeDom;
+      const { creatApp, h } = VueRuntimeDom;
       const App = {
-        render(proxy) {
-          console.log(proxy.name);
-        },
+        // render(proxy) {
+        //   console.log(this, proxy, '==>>>>');
+        // },
         setup(props, ctx) {
-          console.log(props, ctx);
           // return () => h('div', { style: { color: 'red' }, onClick: fn }, 'hellp' + state.age);
-          // return () => {
-          //   console.log("setup render");
-          // };
+          return function () {
+            return h(
+              'div',
+              {
+                style: {
+                  color: 'red'
+                }
+              },
+              [h('div','w1shisdsad')]
+            );
+            console.log(this, 'setup render');
+          };
         }
       };
       creatApp(App, {

@@ -26,7 +26,6 @@ export const setupComponent = (instance) => {
   const { props, children } = instance.vnode;
   instance.props = props;
   instance.children = children;
-  console.log(children, '==>children');
   let isStateFul = instance.vnode.shapeFlag && ShapeFlags.STATEFUL_COMPONENT;
   if (isStateFul) {
     // 有的话就是有状态的组件
@@ -51,7 +50,7 @@ function setupStateComponent(instance) {
     finishComponentSetup(instance);
   }
 
-  component.render(instance.proxy);
+  // component.render(instance.proxy);
 }
 // 处理setup的返回结果
 function handleSetupResult(instance, setupResult) {
@@ -77,7 +76,6 @@ function finishComponentSetup(instance) {
     // 将实例上的setup放入render里
     instance.render = component.render;
   }
-  console.log(instance.render.toString());
 }
 // 创建上下文 ctx
 function createContext(instance) {
@@ -88,4 +86,3 @@ function createContext(instance) {
     expose: () => {}
   };
 }
-export const setupRenderEffect = () => {};
