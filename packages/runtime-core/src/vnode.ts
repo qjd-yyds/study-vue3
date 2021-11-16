@@ -50,3 +50,17 @@ export function normalizeChildren(vnode, children) {
   }
   vnode.shapeFlag = vnode.shapeFlag | type;
 }
+
+// 判断是否是vnode
+export function isVnode(vnode) {
+  return vnode._v_isVnode;
+}
+export const TEXT = Symbol('text');
+// 元素的children 变成vnode
+export function CVnode(child) {
+  // ['text'],[h()]
+  if (isObject(child)) {
+    return child;
+  }
+  return creatVnode(TEXT, null, String(child));
+}
