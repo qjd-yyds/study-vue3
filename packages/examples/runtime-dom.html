@@ -15,24 +15,37 @@
   <body>
     <div id="app">12321</div>
     <script>
-      const { creatApp, h } = VueRuntimeDom;
+      const { creatApp, h, reative } = VueRuntimeDom;
       const App = {
         // render(proxy) {
-        //   console.log(this, proxy, '==>>>>');
+        //   return h(
+        //     'div',
+        //     {
+        //       style: {
+        //         color: 'red'
+        //       }
+        //     },
+        //     // [h('div', 'w1shisdsad')]
+        //     this.state.name
+        //   );
         // },
         setup(props, ctx) {
-          // return () => h('div', { style: { color: 'red' }, onClick: fn }, 'hellp' + state.age);
-          return function () {
-            return h(
-              'div',
-              {
-                style: {
-                  color: 'red'
-                }
-              },
-              [h('div','w1shisdsad')]
-            );
-            console.log(this, 'setup render');
+          console.log('setup here==>');
+          const state = reative({
+            name: '测试',
+            isflag: false
+          });
+          const fn = () => {
+            console.log('点击事件');
+            // state.name = '章三';
+            state.isflag = !state.isflag;
+          };
+          return () => {
+            if (state.isflag) {
+              return h('div', { style: { color: '#000' }, onClick: fn }, 'hellp');
+            } else {
+              return h('div', { style: { color: 'red', fontSize: '40px' }, onClick: fn }, 'hellp');
+            }
           };
         }
       };

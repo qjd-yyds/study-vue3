@@ -23,15 +23,26 @@ export function createRenderer(rendererOptions) {
   function setupRenderEffect(instance, container) {
     // 每次数据变化重新执行render
     effect(function componentEffect() {
+      console.log('effect');
       // 判断是不是第一次加载
       if (!instance.isMounted) {
         // 获取render的返回值
         const proxy = instance.proxy;
-        // 执行render获取vnode
-        let subTree = instance.render.call(proxy, proxy);
+        // 执行render方法获取vnode
+        let subTree = (instance.subTree = instance.render.call(proxy, proxy));
         console.log('subTree', subTree);
-        patch(null, subTree, container);
         // 渲染子树 创建元素
+        patch(null, subTree, container);
+        instance.isMounted = true;
+      } else {
+        // 更新
+        console.log('更新');
+        const proxy = instance.proxy;
+        // 对吧旧的值和新的值
+        const prevTree = instance.subTree;
+        const nextTree = instance.render.call(proxy, proxy);
+        instance.subTree = nextTree;
+        patch(prevTree, nextTree, container);
       }
     });
   }
@@ -48,10 +59,11 @@ export function createRenderer(rendererOptions) {
   // 组件创建
   const processComponent = (n1, n2, container) => {
     if (n1 == null) {
-      // 第一次
+      // 第一次或者重新加载
       mountComponent(n2, container);
     } else {
-      // 更新
+      // 同一个元素
+      console.log('同一个组件比对');
     }
   };
   // ----------------------处理文本
@@ -78,6 +90,7 @@ export function createRenderer(rendererOptions) {
     const { props, shapeFlag, type, children } = vnode;
     // 创建元素
     let el = hostCreateElement(type);
+    vnode.el = el; // 保存当前真实dom
     // 添加属性
     if (props) {
       for (let key in props) {
@@ -99,14 +112,57 @@ export function createRenderer(rendererOptions) {
     // 放到对应的位置
     hostInsert(el, container);
   }
+  // 属性比对
+  const patchProps = (el, oldProps, newProps) => {
+    // 旧的有属性，新的没有这个属性
+    // 循环
+    if (oldProps != newProps) {
+      for (let key in newProps) {
+        const prev = oldProps[key]; // 旧属性
+        const next = newProps[key]; // 旧属性
+        if (prev != next) {
+          // 不相同的就执行替换
+          console.log('当前替换的属性==>', key, '被替换的值', prev, '==>', next);
+          hostPatchProp(el, key, prev, next);
+        }
+      }
+    }
+    // 如果旧的属性不在新的属性里，直接删除
+    for (let key in oldProps) {
+      if (!(key in newProps)) {
+        console.log('被删除的属性key==>', key, '被删除的属性值value', oldProps[key]);
+        hostPatchProp(el, key, oldProps[key], null);
+      }
+    }
+  };
+  // 同一个元素比对
+  const patchElement = (n1, n2, container) => {
+    // 属性比对style class
+    let el = (n2.el = n1.el); // 获取真实的节点
+    const oldProps = n1.props || {};
+    const newProps = n2.props || {};
+    patchProps(el, oldProps, newProps); // 处理属性
+  };
   function processeElement(n1, n2, container) {
     if (n1 == null) {
       // 创建
       mountedElement(n2, container);
     } else {
       // 更新
+      console.log('同一个元素比对');
+      patchElement(n1, n2, container);
     }
   }
+  // 判断是不是同一个元素
+  function isSameVnode(n1, n2) {
+    return n1.type == n2.type && n1.key == n2.key;
+  }
+  // 删除
+  function unmount(vnode) {
+    console.log(vnode.el);
+    hostRemove(vnode.el);
+  }
+  //
   /**
    * @description: 渲染
    * @param {*} n1 上一个节点
@@ -115,6 +171,12 @@ export function createRenderer(rendererOptions) {
    * @return {*}
    */
   function patch(n1, n2, container) {
+    // 判断是不是同一个元素
+    if (n1 && !isSameVnode(n1, n2)) {
+      // 不是同一个元素，直接替换
+      unmount(n1); // 删除之前的元素
+      n1 = null;
+    }
     const { shapeFlag, type } = n2;
     // 文本
     switch (type) {
