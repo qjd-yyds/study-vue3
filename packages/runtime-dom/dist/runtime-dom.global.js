@@ -853,7 +853,7 @@ var VueRuntimeDom = (function (exports) {
       // 属性比对
       const patchProps = (el, oldProps, newProps) => {
           // 旧的有属性，新的没有这个属性
-          // 循环
+          // 循环新的
           if (oldProps != newProps) {
               for (let key in newProps) {
                   const prev = oldProps[key]; // 旧属性
@@ -865,7 +865,7 @@ var VueRuntimeDom = (function (exports) {
                   }
               }
           }
-          // 如果旧的属性不在新的属性里，直接删除
+          // 循环旧的，如果旧的属性不在新的属性里，直接删除
           for (let key in oldProps) {
               if (!(key in newProps)) {
                   console.log('被删除的属性key==>', key, '被删除的属性值value', oldProps[key]);
@@ -880,6 +880,72 @@ var VueRuntimeDom = (function (exports) {
           const oldProps = n1.props || {};
           const newProps = n2.props || {};
           patchProps(el, oldProps, newProps); // 处理属性
+          // 比对children
+          patchChild(n1, n2, el);
+      };
+      // 比对children
+      const patchChild = (n1, n2, el) => {
+          console.log('patchChild==>>>');
+          const c1 = n1.children;
+          const c2 = n2.children;
+          // 1.旧的有新的没有
+          // 2.新的有。旧的没有
+          // 3.新旧都是文本
+          // 4.都有儿子，并且这些儿子都是数组
+          const prevShapeFlag = n1.shapeFlag;
+          const newShapeFlag = n2.shapeFlag;
+          if (newShapeFlag & 8 /* TEXT_CHILDREN */) {
+              // 文本类型
+              hostSetElementText(el, c2);
+          }
+          else {
+              // 不是文本就是数组
+              if (prevShapeFlag & 16 /* ARRAY_CHILDREN */) {
+                  // 旧的也是数组
+                  patchKeyChild(c1, c2, el);
+              }
+              else {
+                  // 旧的是一个文本，讲旧的删除
+                  hostSetElementText(el, '');
+                  // 添加儿子
+                  mountChildren(el, c2);
+              }
+          }
+      };
+      // 儿子都是数组的情况比对
+      const patchKeyChild = (c1, c2, el) => {
+          // vue2 双指针方式
+          // vue3 同步
+          // sync from start ：从头部比对
+          let i = 0; // 比对的位置
+          let e1 = c1.length - 1;
+          let e2 = c2.length - 1;
+          // 🙆同一位置不同，停止，两个数组其中一个没有 停止
+          while (i <= e1 && i <= e2) {
+              const n1 = c1[i];
+              const n2 = c2[i];
+              if (isSameVnode(n1, n2)) {
+                  // 递归判断子元素
+                  patch(n1, n2, el);
+              }
+              else {
+                  break; // 停止
+              }
+              i++;
+          }
+          // sync from end ：从尾部比对
+          // while (i <= e1 && i <= e2) {
+          //   const n1 = c1[i];
+          //   const n2 = c2[i];
+          //   if (isSameVnode(n1, n2)) {
+          //     // 递归判断子元素
+          //     patch(n1, n2, el);
+          //   } else {
+          //     break; // 停止
+          //   }
+          //   e1--;
+          //   e2--;
+          // }
       };
       function processeElement(n1, n2, container) {
           if (n1 == null) {

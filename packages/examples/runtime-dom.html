@@ -33,7 +33,7 @@
           console.log('setup here==>');
           const state = reative({
             name: '测试',
-            isflag: false
+            isflag: true
           });
           const fn = () => {
             console.log('点击事件');
@@ -44,7 +44,7 @@
             if (state.isflag) {
               return h('div', { style: { color: '#000' }, onClick: fn }, 'hellp');
             } else {
-              return h('div', { style: { color: 'red', fontSize: '40px' }, onClick: fn }, 'hellp');
+              return h('div', { style: { color: 'red', fontSize: '40px' }, onClick: fn }, [h('p', {}, '你好')]);
             }
           };
         }
